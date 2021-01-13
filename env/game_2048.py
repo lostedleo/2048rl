@@ -1,19 +1,13 @@
-from __future__ import print_function
 import gym
 from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import logging
 import random
-from collections import deque
 
 import itertools
-import logging
 from six import StringIO
 import sys
-import random
-from collections import deque
-
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -27,9 +21,9 @@ class IllegalMove(Exception):
 class Game2048(gym.Env):
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self):
+    def __init__(self, size=4):
         # Definitions for game. Board-matrix must be square.
-        self.size = 4
+        self.size = size
         self.w = self.size
         self.h = self.size
         squares = self.size * self.size
@@ -64,7 +58,6 @@ class Game2048(gym.Env):
         try:
             score = float(self.move(action))
             self.score += score
-            assert score <= 2**(self.w*self.h)
             self.add_tile()
             done = self.isend()
             reward = float(score)
@@ -99,11 +92,9 @@ class Game2048(gym.Env):
         """Rendering for standard output of score, highest tile reached and
         board-matrix of game."""
         outfile = StringIO() if mode == 'ansi' else sys.stdout
-        s = 'Score: {}\n'.format(self.score)
+        s = 'Score: {}\t'.format(self.score)
         s += 'Highest: {}\n'.format(self.highest())
-        npa = np.array(self.Matrix)
-        grid = npa.reshape((self.size, self.size))
-        s += "{}\n".format(grid)
+        s += "{}\n".format(self.Matrix)
         outfile.write(s)
         return outfile
 
@@ -111,7 +102,7 @@ class Game2048(gym.Env):
     def add_tile(self):
         """Add a tile with value 2 or 4 with different probabilities."""
         val = 0
-        if self.np_random.random_sample() > 0.8:
+        if self.np_random.random_sample() > 0.9:
             val = 4
         else:
             val = 2
@@ -152,17 +143,6 @@ class Game2048(gym.Env):
         """Perform one move of the game. Shift things to one side then,
         combine. directions 0, 1, 2, 3 are up, right, down, left.
         Returns the score that [would have] got."""
-
-        if not trial:
-            if direction == 0:
-                logging.debug("Up")
-            elif direction == 1:
-                logging.debug("Right")
-            elif direction == 2:
-                logging.debug("Down")
-            elif direction == 3:
-                logging.debug("Left")
-
         changed = False
         move_score = 0
         dir_div_two = int(direction / 2)
@@ -199,8 +179,6 @@ class Game2048(gym.Env):
             raise IllegalMove
 
         return move_score
-
-
 
     def combine(self, shifted_row):
         """Combine same tiles when moving to one side. This function always
@@ -271,6 +249,5 @@ class Game2048(gym.Env):
     def set_board(self, new_board):
         """Set the whole board-matrix, useful for testing."""
         self.Matrix =new_board
-
 
 
