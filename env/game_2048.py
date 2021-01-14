@@ -26,7 +26,7 @@ class Game2048(gym.Env):
         self.size = size
         self.w = self.size
         self.h = self.size
-        self.penalty = 4 ** size * 2
+        self.penalty = - 4 ** size * 2
         squares = self.size * self.size
 
         # Maintain own idea of game score, separate from rewards.
