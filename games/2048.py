@@ -192,3 +192,6 @@ class Game(AbstractGame):
             3: "Left",
         }
         return f"{action_number}. {actions[action_number]}"
+
+    def get_score(self):
+        return self.env.get_score()

@@ -65,6 +65,7 @@ class SelfPlay:
                     {
                         "episode_length": len(game_history.action_history) - 1,
                         "total_reward": sum(game_history.reward_history),
+                        "score": game_history.score,
                         "mean_value": numpy.mean(
                             [value for value in game_history.root_values if value]
                         ),
@@ -181,6 +182,8 @@ class SelfPlay:
                 game_history.observation_history.append(observation)
                 game_history.reward_history.append(reward)
                 game_history.to_play_history.append(self.game.to_play())
+
+        game_history.score = self.game.get_score()
 
         return game_history
 
@@ -494,6 +497,7 @@ class GameHistory:
         # For PER
         self.priorities = None
         self.game_priority = None
+        self.score = 0
 
     def store_search_statistics(self, root, action_space):
         # Turn visit count from root into a policy

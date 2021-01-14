@@ -32,6 +32,9 @@ class AbstractGame(ABC):
         """
         return 0
 
+    def get_score(self):
+        return 0
+
     @abstractmethod
     def legal_actions(self):
         """
