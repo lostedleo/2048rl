@@ -26,6 +26,7 @@ class Game2048(gym.Env):
         self.size = size
         self.w = self.size
         self.h = self.size
+        self.penalty = 4 ** size * 2
         squares = self.size * self.size
 
         # Maintain own idea of game score, separate from rewards.
@@ -34,7 +35,7 @@ class Game2048(gym.Env):
         # Members for gym implementation:
         self.action_space = spaces.Discrete(4)
         # Suppose that the maximum tile is as if you have powers of 2 across the board-matrix.
-        ##self.observation_space = spaces.Box(0, 2**squares, (self.w * self.h, ), dtype=np.int)
+        self.observation_space = spaces.Box(0, 1, (self.w, self.h, squares), dtype=np.int)
         # Guess that the maximum reward is also 2**squares though you'll probably never get that.
         ##self.reward_range = (0., float(2**squares))
 
@@ -73,6 +74,8 @@ class Game2048(gym.Env):
         #    - can be used to store further information to the caller after executing each step/movement in the game
         #    - it is useful for testing and for monitoring the agent (via callback functions) while it is training
         info = {"max_tile": self.highest()}
+        if done:
+            reward += self.penalty
 
         # Return observation (board-matrix state), reward, done and info dictionary
         return observation, reward, done, info
@@ -137,6 +140,9 @@ class Game2048(gym.Env):
             for x in range(self.w):
                 highest = max(highest, self.get(x, y))
         return highest
+
+    def get_score(self):
+        return self.score
 
 
     def move(self, direction, trial=False):

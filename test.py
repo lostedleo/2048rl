@@ -5,7 +5,7 @@ import env
 import gym
 import time
 
-env = gym.make('game2048-v0', size=4)
+env = gym.make('game2048-v0', size=2)
 obs = env.reset()
 rewards = 0
 step = 0
