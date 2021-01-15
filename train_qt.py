@@ -8,11 +8,15 @@ import numpy as np
 
 GAME_SIZE=3
 scores = []
-trials = 4 * 1000 * 100
+trials = 1 * 1000 * 10
+highest = {}
+targets = {}
+epsilon = 0.9
 
 def train_ql():
     env = gym.make('game2048-v0', size=GAME_SIZE)
     agent = model.QLearning(env.action_space)
+    total_steps = 0
 
     for trial in range(trials):
         obs = env.reset()
@@ -21,6 +25,7 @@ def train_ql():
         rewards = 0
         while True:
             stepno += 1
+            total_steps += 1
             action = agent.choose_action(str(obs))
             obs_, reward, done, _ = env.step(action)
             obs_ = str(obs_.reshape(GAME_SIZE ** 2).tolist())
@@ -39,24 +44,29 @@ def train_ql():
         stepno = 0
         rewards = 0
 
-    print(len(agent.q_table))
+    print(f'table_len: {len(agent.q_table)} steps: {total_steps}')
     plot_score()
 
 def train_sarsa():
     env = gym.make('game2048-v0', size=GAME_SIZE)
-    agent = model.Sarsa(env.action_space)
+    agent = model.Sarsa(env.action_space, learning_rate=0.5, reward_decay=0.95)
+    greedy = False
+    total_steps = 0
 
     for trial in range(trials):
+        #  if not greedy and trial > int(trials * epsilon):
+       #       greedy = True
         obs = env.reset()
         obs = str(obs.reshape(GAME_SIZE ** 2).tolist())
-        action = agent.choose_action(obs)
+        action = agent.choose_action(obs, greedy)
         stepno = 0
         rewards = 0
         while True:
             stepno += 1
+            total_steps += 1
             obs_, reward, done, _ = env.step(action)
             obs_ = str(obs_.reshape(GAME_SIZE ** 2).tolist())
-            action_ = agent.choose_action(obs_)
+            action_ = agent.choose_action(obs_, greedy)
             if done:
                 obs_ = 'terminal'
             agent.learn(obs, action, reward, obs_, action_)
@@ -69,11 +79,17 @@ def train_sarsa():
         env.render()
         print(f'Completed in {trial} use {stepno} steps highest: \
 {env.highest()} rewards: {rewards}')
+        if env.highest() >= 2 ** (GAME_SIZE ** 2 - 1):
+            highest[trial] = env.highest()
+            if env.highest() >+ 2 ** (GAME_SIZE ** 2):
+                targets[trail] = env.highest()
         scores.append(env.get_score())
         stepno = 0
         rewards = 0
 
-    print(len(agent.q_table))
+    print(f'table_len: {len(agent.q_table)} steps: {total_steps}')
+    print(f'highest len: {len(highest)} prob: {len(highest) * 1.0 / trials} \
+target len: {len(targets)} prob: {len(targets) * 1.0 / trials}')
     plot_score()
 
 def train_sl():
@@ -118,4 +134,4 @@ def plot_score():
     plt.show()
 
 if __name__ == "__main__":
-    train_ql()
+    train_sarsa()

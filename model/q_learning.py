@@ -18,10 +18,10 @@ class RL(object):
             # add new state to q table
             self.q_table[state] = np.zeros(self.actions.n, dtype=np.float32)
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, greedy=False):
         self.check_state_exist(observation)
         # action selection
-        if np.random.uniform() < self.epsilon:
+        if greedy or np.random.uniform() < self.epsilon:
             # choose best action
             state_action = self.q_table[observation]
             # some actions may have the same value, randomly choose on in these actions
