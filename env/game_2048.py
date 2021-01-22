@@ -56,16 +56,17 @@ class Game2048(gym.Env):
         logging.debug("Action {}".format(action))
         score = 0
         done = None
+        add_val = 0
         try:
             score = float(self.move(action))
             self.score += score
-            self.add_tile()
+            add_val = self.add_tile()
             done = self.isend()
             reward = float(score)
         except IllegalMove as e:
             logging.debug("Illegal move")
             done = False
-            reward = -5. # No reward for an illegal move. We could even set a negative value to penalize the agent.
+            reward = 2 * self.penalty # No reward for an illegal move. We could even set a negative value to penalize the agent.
 
         #print("Am I done? {}".format(done))
         observation = self.Matrix
@@ -115,6 +116,7 @@ class Game2048(gym.Env):
         empty = empties[empty_idx]
         logging.debug("Adding %s at %s", val, (empty[0], empty[1]))
         self.set(empty[0], empty[1], val)
+        return val
 
     def get(self, x, y):
         """Get the value of one square."""
@@ -144,6 +146,8 @@ class Game2048(gym.Env):
     def get_score(self):
         return self.score
 
+    def get_size(self):
+        return self.size
 
     def move(self, direction, trial=False):
         """Perform one move of the game. Shift things to one side then,

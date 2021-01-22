@@ -12,11 +12,13 @@ class RL(object):
         self.gamma = reward_decay
         self.epsilon = e_greedy
         self.q_table = dict()
+        self.q_table_explore = dict()
 
     def check_state_exist(self, state):
         if state not in self.q_table:
             # add new state to q table
-            self.q_table[state] = np.zeros(self.actions.n, dtype=np.float32)
+            self.q_table[state] = np.zeros(self.actions.n, dtype=np.float64)
+            self.q_table_explore[state] = np.zeros(self.actions.n, dtype=np.int)
 
     def choose_action(self, observation, greedy=False):
         self.check_state_exist(observation)
@@ -50,6 +52,7 @@ class QLearning(RL):
         else:
             q_target = r  # next state is terminal
         self.q_table[s][a] += self.lr * (q_target - q_predict)  # update
+        self.q_table_explore[s][a] += 1
 
 # on-policy
 class Sarsa(RL):
@@ -77,8 +80,8 @@ class SarsaLambda(RL):
     def check_state_exist(self, state):
         if state not in self.q_table:
             # add new state to q table
-            self.q_table[state] = np.zeros(self.actions.n, dtype=np.float32)
-            self.eligibility_trace[state] = np.zeros(self.actions.n, dtype=np.float32)
+            self.q_table[state] = np.zeros(self.actions.n, dtype=np.float64)
+            self.eligibility_trace[state] = np.zeros(self.actions.n, dtype=np.float64)
 
     def learn(self, s, a, r, s_, a_):
         self.check_state_exist(s_)
