@@ -125,10 +125,8 @@ class DeepQNetwork:
             # forward feed the observation and get q value for every actions
             actions_value = self.sess.run(self.q_eval, feed_dict={self.s: observation})
             action = np.argmax(actions_value)
-            print(f'action1: {action}')
         else:
             action = np.random.randint(0, self.n_actions)
-            print(f'action2: {action}')
         return action
 
     def learn(self):
@@ -202,6 +200,4 @@ class DeepQNetwork:
         plt.ylabel('Cost')
         plt.xlabel('training steps')
         plt.show()
-
-
 

@@ -7,19 +7,23 @@ import model
 import numpy as np
 import getopt
 import sys
+from collections import deque
 
 highest = {}
 targets = {}
 
-def train_ql(size, lr, rd):
+def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
     env = gym.make('game2048-v0', size=size)
     agent = model.QLearning(env.action_space, learning_rate=lr, reward_decay=rd)
     total_steps = 0
     total_scores = 0
     highest_score = 0
-    trials = 1 * 1000 * (size ** 2)
+    #  trials = 1 * 100000 * (size ** 2)
+    trials = 10000
+    scores_window = deque(maxlen=100)
+    eps = eps_start
 
-    for trial in range(trials):
+    for trial in range(1, trials+1):
         obs = env.reset()
         obs = str(obs.reshape(size ** 2).tolist())
         stepno = 0
@@ -27,7 +31,7 @@ def train_ql(size, lr, rd):
         while True:
             stepno += 1
             total_steps += 1
-            action = agent.choose_action(str(obs))
+            action = agent.choose_action(str(obs), eps)
             obs_, reward, done, _ = env.step(action)
             obs_ = str(obs_.reshape(size ** 2).tolist())
             if done:
@@ -38,14 +42,17 @@ def train_ql(size, lr, rd):
             if done:
                 break
 
-        env.render()
-        print(f'Completed in {trial} use {stepno} steps highest: \
-{env.highest()} rewards: {rewards}')
+        #env.render()
+        eps = max(eps_end, eps_decay * eps)
+        scores_window.append(rewards)
+        #  print(f'Completed in {trial} use {stepno} steps highest: \
+#  {env.highest()} rewards: {rewards}')
         if env.get_score() > highest_score:
             highest_score = env.get_score()
         total_scores += env.get_score()
-        stepno = 0
-        rewards = 0
+        print('\rEpisode {}\t Average Score: {:.2f}\t {}'.format(trial, np.mean(scores_window), eps), end="")
+        if trial% 100 == 0:
+            print('\rEpisode {}\t Average Score: {:.2f}'.format(trial, np.mean(scores_window)))
 
     eval(env, agent, 1000, render=False)
     print(f'table_len: {len(agent.q_table)} steps: {total_steps} avg_score: {total_scores / trials} \

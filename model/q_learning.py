@@ -20,10 +20,10 @@ class RL(object):
             self.q_table[state] = np.zeros(self.actions.n, dtype=np.float64)
             self.q_table_explore[state] = np.zeros(self.actions.n, dtype=np.int)
 
-    def choose_action(self, observation, greedy=False):
+    def choose_action(self, observation, eps=0.):
         self.check_state_exist(observation)
         # action selection
-        if greedy or np.random.uniform() < self.epsilon:
+        if np.random.uniform() > eps:
             # choose best action
             state_action = self.q_table[observation]
             # some actions may have the same value, randomly choose on in these actions

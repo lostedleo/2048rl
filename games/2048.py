@@ -8,7 +8,7 @@ import env
 
 from .abstract_game import AbstractGame
 
-GAME_SISE=3
+GAME_SISE=2
 
 class MuZeroConfig:
     def __init__(self, size=GAME_SISE):
