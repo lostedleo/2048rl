@@ -24,6 +24,7 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
     trials = 1 * 100000000 * (size ** 2)
     eps = eps_start
     scores_window = deque(maxlen=WINDOWS_SIZE)
+    rewards_window = deque(maxlen=WINDOWS_SIZE)
     scores = []
 
     for trial in range(1, trials+1):
@@ -42,8 +43,10 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
             if done:
                 break
 
+
         eps = max(eps_end, eps_decay * eps)
-        scores_window.append(rewards)
+        rewards_window.append(rewards)
+        scores_window.append(env.get_score())
         scores.append(rewards)
         #env.render()
         #  print(f'Completed in {trial} use {stepno} steps highest: \
@@ -51,10 +54,12 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
         if env.get_score() > highest_score:
             highest_score = env.get_score()
         total_scores += env.get_score()
-        print('\rEpisode {}\t Average Score: {:.2f}\t loss: {}'.format(trial, np.mean(scores_window), loss), end="")
+        print('\rEpisode {}\t Average Reward: {:.2f}\t Average Scores: {:.2f}\t loss: {}'.
+                format(trial, np.mean(rewards_window), np.mean(scores_window), loss), end="")
         if trial % WINDOWS_SIZE == 0:
-            print('\rEpisode {}\t Average Score: {:.2f}'.format(trial, np.mean(scores_window)))
-        if np.mean(scores_window) >= 35.0:
+            print('\rEpisode {}\t Average Reward: {:.2f}\t Average Scores: {:.2f}\t loss: {}'.
+                format(trial, np.mean(rewards_window), np.mean(scores_window), loss))
+        if np.mean(scores_window) >= 1600.0:
             import torch
             torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
             break

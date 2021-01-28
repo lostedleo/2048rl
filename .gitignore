@@ -2,3 +2,4 @@
 __pycache__
 results
 explore*.file
+checkpoint.pth

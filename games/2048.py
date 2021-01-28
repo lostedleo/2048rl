@@ -8,7 +8,7 @@ import env
 
 from .abstract_game import AbstractGame
 
-GAME_SISE=2
+GAME_SISE=3
 
 class MuZeroConfig:
     def __init__(self, size=GAME_SISE):
@@ -84,7 +84,7 @@ class MuZeroConfig:
         self.lr_decay_steps = 1000
 
         ### Replay Buffer
-        self.replay_buffer_size = 5000  # Number of self-play games to keep in the replay buffer
+        self.replay_buffer_size = 10000  # Number of self-play games to keep in the replay buffer
         self.num_unroll_steps = 10  # Number of game moves to keep for every batch element
         self.td_steps = 20  # Number of steps in the future to take into account for calculating the target value
         self.PER = False  # Prioritized Replay (See paper appendix Training), select in priority the elements in the replay buffer which are unexpected for the network
@@ -137,7 +137,7 @@ class Game(AbstractGame):
         Returns:
             The new observation, the reward and a boolean if the game has ended.
         """
-        observation, reward, done, _ = self.env.step(action)
+        observation, reward, done, _ = self.env.step(action, True)
         return numpy.array(observation.reshape(1, GAME_SISE, GAME_SISE)), reward, done
 
     def legal_actions(self):
@@ -160,7 +160,7 @@ class Game(AbstractGame):
         Returns:
             Initial observation of the game.
         """
-        return numpy.array(self.env.reset().reshape(1, GAME_SISE, GAME_SISE))
+        return numpy.array(self.env.reset(True).reshape(1, GAME_SISE, GAME_SISE))
 
     def close(self):
         """

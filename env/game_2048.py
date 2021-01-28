@@ -8,6 +8,7 @@ import random
 import itertools
 from six import StringIO
 import sys
+from math import log2
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -80,6 +81,10 @@ class Game2048(gym.Env):
 
         # Return observation (board-matrix state), reward, done and info dictionary
         if norm:
+            if reward > 0:
+                reward = log2(reward)
+            elif reward < 0:
+                reward = -log2(abs(reward))
             return self.normalize(), reward, done, info
         return observation.reshape(self.size ** 2).copy(), reward, done, info
 
@@ -89,6 +94,8 @@ class Game2048(gym.Env):
         index = ret == 0
         ret[index] = 2
         ret = np.log2(ret)
+        ret -= 1
+        ret /= (self.size ** 2 + 1)
         return ret
 
     def reset(self, norm=False):
