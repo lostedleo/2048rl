@@ -51,7 +51,7 @@ class Game2048(gym.Env):
         return [seed]
 
     # Implementation of gym interface:
-    def step(self, action):
+    def step(self, action, norm=False):
         """Perform one step of the game. This involves moving and adding a new tile."""
         logging.debug("Action {}".format(action))
         score = 0
@@ -79,9 +79,19 @@ class Game2048(gym.Env):
             reward += self.penalty
 
         # Return observation (board-matrix state), reward, done and info dictionary
-        return observation.reshape(self.size ** 2), reward, done, info
+        if norm:
+            return self.normalize(), reward, done, info
+        return observation.reshape(self.size ** 2).copy(), reward, done, info
 
-    def reset(self):
+    def normalize(self):
+        ret = self.Matrix.reshape(self.size ** 2).copy()
+        ret *= 2
+        index = ret == 0
+        ret[index] = 2
+        ret = np.log2(ret)
+        return ret
+
+    def reset(self, norm=False):
         """Reset the game board-matrix and add 2 tiles."""
         self.Matrix = np.zeros((self.h, self.w), np.int)
         self.score = 0
@@ -90,7 +100,9 @@ class Game2048(gym.Env):
         self.add_tile()
         self.add_tile()
 
-        return self.Matrix.reshape(self.size ** 2)
+        if norm:
+            return self.normalize()
+        return self.Matrix.reshape(self.size ** 2).copy()
 
     def render(self, mode='human'):
         """Rendering for standard output of score, highest tile reached and

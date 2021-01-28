@@ -27,8 +27,7 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
     scores = []
 
     for trial in range(1, trials+1):
-        obs = env.reset()
-        obs = obs.reshape(size * size).copy()
+        obs = env.reset(True)
         stepno = 0
         rewards = 0
         loss = 0
@@ -36,8 +35,7 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
             stepno += 1
             total_steps += 1
             action = agent.choose_action(obs, eps)
-            obs_, reward, done, _ = env.step(action)
-            obs_ = obs_.reshape(size * size).copy()
+            obs_, reward, done, _ = env.step(action, True)
             loss = agent.step(obs, action, reward, obs_, done)
             obs = obs_
             rewards += reward
@@ -83,13 +81,11 @@ def eval(env, agent, times=1000, render=False):
     max_tiles = []
 
     for i in range(times):
-        obs = env.reset()
-        obs = obs.reshape(size * size).copy()
+        obs = env.reset(True)
 
         while True:
             action = agent.choose_action(obs)
-            obs_, reward, done, _ = env.step(action)
-            obs_ = obs_.reshape(size * size).copy()
+            obs_, reward, done, _ = env.step(action, True)
             if render:
                 print(f'action is: {action} {obs} {obs_}')
                 env.render()
