@@ -59,10 +59,9 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
         if trial % WINDOWS_SIZE == 0:
             print('\rEpisode {}\t Average Reward: {:.2f}\t Average Scores: {:.2f}\t loss: {}'.
                 format(trial, np.mean(rewards_window), np.mean(scores_window), loss))
-        if np.mean(scores_window) >= 1600.0:
+        if trial % 1000 == 0:
             import torch
             torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
-            break
 
     eval(env, agent, 1000, render=False)
     print(f'steps: {total_steps} avg_score: {total_scores / trials} \

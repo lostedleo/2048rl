@@ -77,7 +77,7 @@ class Game2048(gym.Env):
         #    - it is useful for testing and for monitoring the agent (via callback functions) while it is training
         info = {"max_tile": self.highest(), "score": self.score}
         if done:
-            reward += self.penalty
+            reward += self.highest() / 2
 
         # Return observation (board-matrix state), reward, done and info dictionary
         if norm:

@@ -7,7 +7,6 @@ import time
 import getopt
 import sys
 
-
 def test():
     env = parse_args()
     obs = env.reset()
