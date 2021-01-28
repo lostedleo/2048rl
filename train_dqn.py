@@ -26,6 +26,7 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
     scores_window = deque(maxlen=WINDOWS_SIZE)
     rewards_window = deque(maxlen=WINDOWS_SIZE)
     scores = []
+    sd_name = 'model_%dx%d.checkpoint'%(size, size)
 
     for trial in range(1, trials+1):
         obs = env.reset(True)
@@ -61,7 +62,7 @@ def train_dqn(size, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
                 format(trial, np.mean(rewards_window), np.mean(scores_window), loss))
         if trial % 1000 == 0:
             import torch
-            torch.save(agent.qnetwork_local.state_dict(), 'checkpoint.pth')
+            torch.save(agent.qnetwork_local.state_dict(), sd_name)
 
     eval(env, agent, 1000, render=False)
     print(f'steps: {total_steps} avg_score: {total_scores / trials} \
@@ -113,22 +114,38 @@ def eval(env, agent, times=1000, render=False):
         plot_score(scores, max_tiles)
         print(f'eval avg_score: {total_scores / times} highest_score: {highest_score}')
 
+def test(size):
+    import torch
+    env = gym.make('game2048-v0', size=size)
+    agent = model.DQNAgent(size * size, 4, 0)
+
+    sd_name = 'model_%dx%d.checkpoint'%(size, size)
+    agent.qnetwork_local.load_state_dict(torch.load(sd_name))
+    agent.qnetwork_target.load_state_dict(torch.load(sd_name))
+    eval(env, agent, 1000, render=False)
+
 def usage():
     print(sys.argv[0] + ' -s game_size')
     print(sys.argv[0] + ' -h get help info')
 
 def main():
-    opts, args = getopt.getopt(sys.argv[1:], 'hs:',
+    opts, args = getopt.getopt(sys.argv[1:], 'hs:m:',
             ['help', 'size='])
     game_size = 2
+    model = 0
     for opt, value in opts:
-        if opt == '-s' or opt == '--size':
+        if opt == '-s' or opt == '--size=':
             game_size = int(value)
+        elif opt == '-m' or opt == '--model=':
+            model = int(value)
         elif opt == '-h' or opt == 'help':
             usage()
             exit(-1)
 
-    train_dqn(game_size)
+    if model == 0:
+        train_dqn(game_size)
+    elif model == 1:
+        test(game_size)
 
 if __name__ == "__main__":
     main()
