@@ -6,8 +6,10 @@ import gym
 import time
 import getopt
 import sys
+from pypprof.net_http import start_pprof_server
 
 def test():
+    start_pprof_server(port=8081)
     env = parse_args()
     obs = env.reset()
     rewards = 0
@@ -26,7 +28,7 @@ def test():
                escape = time.time() * 1000 - start
                env.render()
                print(f'play games steps: {step} reward: {rewards} info: {info} use {escape}ms')
-               time.sleep(0.5)
+               # time.sleep(0.5)
 
                step = 0
                rewards = 0

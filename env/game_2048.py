@@ -9,6 +9,7 @@ import itertools
 from six import StringIO
 import sys
 from math import log2
+from math import pow
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
@@ -22,12 +23,18 @@ class IllegalMove(Exception):
 class Game2048(gym.Env):
     metadata = {'render.modes': ['human', 'ansi']}
 
-    def __init__(self, size=4):
+    def __init__(self, config=None, size=4, norm=False):
         # Definitions for game. Board-matrix must be square.
         self.size = size
+        self.norm = norm
+        if config is not None:
+            self.size = config['size']
+            self.norm = config['norm']
+
         self.w = self.size
         self.h = self.size
-        self.penalty = - 4 ** size * 2
+        #  self.penalty = - pow(4, size) * 2
+        self.penalty = -4
         squares = self.size * self.size
 
         # Maintain own idea of game score, separate from rewards.
@@ -36,7 +43,7 @@ class Game2048(gym.Env):
         # Members for gym implementation:
         self.action_space = spaces.Discrete(4)
         # Suppose that the maximum tile is as if you have powers of 2 across the board-matrix.
-        self.observation_space = spaces.Box(0, 1, (squares, ), dtype=np.int)
+        self.observation_space = spaces.Box(0, pow(2, squares + 2), (squares, ), dtype=np.int)
         # Guess that the maximum reward is also 2**squares though you'll probably never get that.
         ##self.reward_range = (0., float(2**squares))
 
@@ -52,7 +59,7 @@ class Game2048(gym.Env):
         return [seed]
 
     # Implementation of gym interface:
-    def step(self, action, norm=False):
+    def step(self, action):
         """Perform one step of the game. This involves moving and adding a new tile."""
         logging.debug("Action {}".format(action))
         score = 0
@@ -67,20 +74,19 @@ class Game2048(gym.Env):
         except IllegalMove as e:
             logging.debug("Illegal move")
             done = False
-            reward = 2 * self.penalty # No reward for an illegal move. We could even set a negative value to penalize the agent.
+            reward = 8 * self.penalty # No reward for an illegal move. We could even set a negative value to penalize the agent.
 
-        #print("Am I done? {}".format(done))
         observation = self.Matrix
-
         # info (dictionary):
         #    - can be used to store further information to the caller after executing each step/movement in the game
         #    - it is useful for testing and for monitoring the agent (via callback functions) while it is training
         info = {"max_tile": self.highest(), "score": self.score}
         if done:
-            reward += self.highest() / 2
+            reward += self.penalty
+            #  reward = 0
 
         # Return observation (board-matrix state), reward, done and info dictionary
-        if norm:
+        if self.norm:
             if reward > 0:
                 reward = log2(reward)
             elif reward < 0:
@@ -95,10 +101,10 @@ class Game2048(gym.Env):
         ret[index] = 2
         ret = np.log2(ret)
         ret -= 1
-        ret /= (self.size ** 2 + 1)
+        #  ret /= (self.size ** 2 + 1)
         return ret
 
-    def reset(self, norm=False):
+    def reset(self):
         """Reset the game board-matrix and add 2 tiles."""
         self.Matrix = np.zeros((self.h, self.w), np.int)
         self.score = 0
@@ -107,7 +113,7 @@ class Game2048(gym.Env):
         self.add_tile()
         self.add_tile()
 
-        if norm:
+        if self.norm:
             return self.normalize()
         return self.Matrix.reshape(self.size ** 2).copy()
 

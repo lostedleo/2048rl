@@ -4,3 +4,5 @@ results
 explore*.file
 checkpoint.pth
 *.checkpoint
+logs
+log

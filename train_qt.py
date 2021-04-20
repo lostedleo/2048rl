@@ -12,7 +12,7 @@ from collections import deque
 highest = {}
 targets = {}
 
-def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
+def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.999):
     env = gym.make('game2048-v0', size=size)
     agent = model.QLearning(env.action_space, learning_rate=lr, reward_decay=rd)
     total_steps = 0
@@ -24,7 +24,7 @@ def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
     eps = eps_start
 
     for trial in range(1, trials+1):
-        obs = env.reset()
+        obs = env.reset(True)
         obs = str(obs.reshape(size ** 2).tolist())
         stepno = 0
         rewards = 0
@@ -32,7 +32,7 @@ def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
             stepno += 1
             total_steps += 1
             action = agent.choose_action(str(obs), eps)
-            obs_, reward, done, _ = env.step(action)
+            obs_, reward, done, _ = env.step(action, True)
             obs_ = str(obs_.reshape(size ** 2).tolist())
             if done:
                 obs_ = 'terminal'
@@ -45,14 +45,12 @@ def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
         #env.render()
         eps = max(eps_end, eps_decay * eps)
         scores_window.append(rewards)
-        #  print(f'Completed in {trial} use {stepno} steps highest: \
-#  {env.highest()} rewards: {rewards}')
         if env.get_score() > highest_score:
             highest_score = env.get_score()
         total_scores += env.get_score()
-        print('\rEpisode {}\t Average Score: {:.2f}\t {}'.format(trial, np.mean(scores_window), eps), end="")
+        print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}\t {}'.format(trial, total_steps, np.mean(scores_window), eps), end="")
         if trial% 100 == 0:
-            print('\rEpisode {}\t Average Score: {:.2f}'.format(trial, np.mean(scores_window)))
+            print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}'.format(trial, total_steps, np.mean(scores_window)))
 
     eval(env, agent, 1000, render=False)
     print(f'table_len: {len(agent.q_table)} steps: {total_steps} avg_score: {total_scores / trials} \
@@ -88,9 +86,9 @@ def train_sarsa(size, lr, rd):
             if done:
                 break
 
-        env.render()
+        #env.render()
         print(f'Completed in {trial} use {stepno} steps highest: \
-{env.highest()} rewards: {rewards}')
+{env.highest()} rewards: {rewards}', end="")
         if env.highest() >= 2 ** (size ** 2 - 1):
             highest[trial] = env.highest()
             if env.highest() >= 2 ** (size ** 2):
@@ -148,7 +146,17 @@ def plot_score(scores, max_tiles):
     plt.xlabel('training steps')
     plt.show()
 
+def write_explore(agent, name):
+    print(f'Writing... explore {name} info')
+    with open(name, 'wb+') as f:
+        for k, v in agent.q_table_explore.items():
+            f.write(bytes(k + ',' + str(v) + ',' + str(agent.q_table[k]) + '\n', 'utf-8'))
+    print(f'Ended write explore {name} info')
+
 def eval(env, agent, times=1000, render=False):
+    if False:
+        write_explore(agent, 'explore_old.file')
+
     highest_score = 0
     total_scores = 0
     size = env.get_size()
@@ -156,21 +164,19 @@ def eval(env, agent, times=1000, render=False):
     max_tiles = []
 
     for i in range(times):
-        obs = env.reset()
+        obs = env.reset(True)
         obs = str(obs.reshape(size ** 2).tolist())
 
         while True:
-            action = agent.choose_action(obs, True)
-            obs_, reward, done, _ = env.step(action)
+            action = agent.choose_action(obs)
+            obs_, reward, done, _ = env.step(action, True)
             obs_ = str(obs_.reshape(size ** 2).tolist())
             if render:
                 print(f'action is: {action} {obs} {obs_}')
                 env.render()
             if obs_ == obs:
-                env.render()
+                #  env.render()
                 agent.learn(obs, action, reward, obs_)
-#                  print(f'this should not happend {obs} action: {action} q_value: {agent.q_table[obs]} explore: \
-#  {agent.q_table_explore[obs]}')
             obs = obs_
             if done:
                 break
@@ -185,11 +191,9 @@ def eval(env, agent, times=1000, render=False):
     if times > 0:
         plot_score(scores, max_tiles)
         print(f'eval avg_score: {total_scores / times} highest_score: {highest_score}')
-    print(f'Writing... explore info')
-    with open('explore.file', 'wb+') as f:
-        for k, v in agent.q_table_explore.items():
-            f.write(bytes(k + ',' + str(v) + ',' + str(agent.q_table[k]) + '\n', 'utf-8'))
-    print(f'Ended write explore info')
+
+    if False:
+        write_explore(agent, 'explore_new.file')
 
 def usage():
     print(sys.argv[0] + ' -s game_size -l learning_rate -d reward_decay')
@@ -216,9 +220,9 @@ def main():
             exit(-1)
 
     if model == 0:
-        train_sarsa(game_size, learning_rate, reward_decay)
-    elif model == 1:
         train_ql(game_size, learning_rate, reward_decay)
+    elif model == 1:
+        train_sarsa(game_size, learning_rate, reward_decay)
     elif model == 2:
         train_sl(game_size, learning_rate, reward_decay)
 

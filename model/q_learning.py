@@ -48,7 +48,12 @@ class QLearning(RL):
         self.check_state_exist(s_)
         q_predict = self.q_table[s][a]
         if s_ != 'terminal':
-            q_target = r + self.gamma * self.q_table[s_].max()  # next state is not terminal
+            #  q_target = r + self.gamma * self.q_table[s_].max()  # next state is not terminal
+            if s != s_:
+                q_target = r + self.gamma * self.q_table[s_].max()  # next state is not terminal
+            else:
+                # if state had not change, should not add self state q_max
+                q_target = r
         else:
             q_target = r  # next state is terminal
         self.q_table[s][a] += self.lr * (q_target - q_predict)  # update

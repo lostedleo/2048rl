@@ -7,8 +7,6 @@ Restart workers once PPO is updated.
 The global PPO updating rule is adopted from DeepMind's paper (DPPO):
 Emergence of Locomotion Behaviours in Rich Environments (Google Deepmind): [https://arxiv.org/abs/1707.02286]
 
-View more on my tutorial website: https://morvanzhou.github.io/tutorials
-
 Dependencies:
 tensorflow 1.8.0
 gym 0.9.2
@@ -24,7 +22,7 @@ import env
 
 EP_MAX = 4000
 EP_LEN = 500
-N_WORKER = 4                # parallel workers
+N_WORKER = 8                # parallel workers
 GAMMA = 0.9                 # reward discount factor
 A_LR = 0.0001               # learning rate for actor
 C_LR = 0.0001               # learning rate for critic
@@ -32,7 +30,7 @@ MIN_BATCH_SIZE = 64         # minimum batch size for updating PPO
 UPDATE_STEP = 15            # loop update operation n-steps
 EPSILON = 0.2               # for clipping surrogate objective
 GAME = 'game2048-v0'
-GAME_SIZE=2
+GAME_SIZE=3
 
 env = gym.make(GAME, size=GAME_SIZE)
 S_DIM = env.observation_space.shape[0]
@@ -118,7 +116,7 @@ class Worker(object):
     def work(self):
         global GLOBAL_EP, GLOBAL_RUNNING_R, GLOBAL_UPDATE_COUNTER
         while not COORD.should_stop():
-            s = self.env.reset()
+            s = self.env.reset(True)
             ep_r = 0
             buffer_s, buffer_a, buffer_r = [], [], []
             for t in range(EP_LEN):
@@ -126,10 +124,10 @@ class Worker(object):
                     ROLLING_EVENT.wait()                        # wait until PPO is updated
                     buffer_s, buffer_a, buffer_r = [], [], []   # clear history buffer, use new policy to collect data
                 a = self.ppo.choose_action(s)
-                s_, r, done, _ = self.env.step(a)
+                s_, r, done, _ = self.env.step(a, True)
                 buffer_s.append(s)
                 buffer_a.append(a)
-                buffer_r.append(r-1)                            # 0 for not down, -11 for down. Reward engineering
+                buffer_r.append(r)                            # 0 for not down, -11 for down. Reward engineering
                 s = s_
                 ep_r += r
 
@@ -191,9 +189,9 @@ if __name__ == '__main__':
     plt.xlabel('Episode'); plt.ylabel('Moving reward'); plt.ion(); plt.show()
     env = gym.make(GAME, size=GAME_SIZE)
     for t in range(1000):
-        s = env.reset()
+        s = env.reset(True)
         while True:
-            s, r, done, info = env.step(GLOBAL_PPO.choose_action(s))
+            s, r, done, info = env.step(GLOBAL_PPO.choose_action(s), True)
             if done:
                 break
 
