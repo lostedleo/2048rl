@@ -12,19 +12,20 @@ from collections import deque
 highest = {}
 targets = {}
 
-def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.999):
+def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.05, eps_decay=0.999):
     env = gym.make('game2048-v0', size=size)
     agent = model.QLearning(env.action_space, learning_rate=lr, reward_decay=rd)
     total_steps = 0
     total_scores = 0
     highest_score = 0
     #  trials = 1 * 100000 * (size ** 2)
-    trials = 10000
+    trials = 400000
+    rewards_window = deque(maxlen=100)
     scores_window = deque(maxlen=100)
     eps = eps_start
 
     for trial in range(1, trials+1):
-        obs = env.reset(True)
+        obs = env.reset()
         obs = str(obs.reshape(size ** 2).tolist())
         stepno = 0
         rewards = 0
@@ -32,7 +33,7 @@ def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.999):
             stepno += 1
             total_steps += 1
             action = agent.choose_action(str(obs), eps)
-            obs_, reward, done, _ = env.step(action, True)
+            obs_, reward, done, _ = env.step(action)
             obs_ = str(obs_.reshape(size ** 2).tolist())
             if done:
                 obs_ = 'terminal'
@@ -44,13 +45,16 @@ def train_ql(size, lr, rd, eps_start=1.0, eps_end=0.01, eps_decay=0.999):
 
         #env.render()
         eps = max(eps_end, eps_decay * eps)
-        scores_window.append(rewards)
+        rewards_window.append(rewards)
+        scores_window.append(env.get_score())
         if env.get_score() > highest_score:
             highest_score = env.get_score()
         total_scores += env.get_score()
-        print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}\t {}'.format(trial, total_steps, np.mean(scores_window), eps), end="")
+        print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}\t Average Scores: {:.2f} {}'.
+                format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), eps), end="")
         if trial% 100 == 0:
-            print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}'.format(trial, total_steps, np.mean(scores_window)))
+            print('\rEpisode {}\t total_steps: {}\t Average Rewards: {:.2f}\t Average Scores: {:.2f} {}'.
+                    format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), eps))
 
     eval(env, agent, 1000, render=False)
     print(f'table_len: {len(agent.q_table)} steps: {total_steps} avg_score: {total_scores / trials} \
@@ -164,12 +168,12 @@ def eval(env, agent, times=1000, render=False):
     max_tiles = []
 
     for i in range(times):
-        obs = env.reset(True)
+        obs = env.reset()
         obs = str(obs.reshape(size ** 2).tolist())
 
         while True:
             action = agent.choose_action(obs)
-            obs_, reward, done, _ = env.step(action, True)
+            obs_, reward, done, _ = env.step(action)
             obs_ = str(obs_.reshape(size ** 2).tolist())
             if render:
                 print(f'action is: {action} {obs} {obs_}')

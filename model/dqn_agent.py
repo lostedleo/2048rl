@@ -6,13 +6,14 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.nn as nn
+from torch.distributions import Categorical
 
-BUFFER_SIZE = int(1e5)  # replay buffer size
+BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 64         # minibatch size
 GAMMA = 0.95            # discount factor
 TAU = 1e-3              # for soft update of target parameters
-LR = 5e-3               # learning rate
-UPDATE_EVERY = 4        # how often to update the network
+LR = 5e-4               # learning rate
+UPDATE_EVERY = 2        # how often to update the network
 
 class QNetwork(nn.Module):
     """Actor (Policy) Model."""
@@ -52,9 +53,9 @@ class QNetwork(nn.Module):
         if self.dueling:
             V = self.V(x)
             A = self.A(x)
-            return V + (A - A.mean(dim=1, keepdim=True))
+            return V + (A - A.mean(dim=1, keepdim=True)), A
         else:
-            return self.Q(x)
+            return self.Q(x), None
 
 class DQNAgent():
     """Interacts with and learns from the environment."""
@@ -81,7 +82,7 @@ class DQNAgent():
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, seed, self.q_eval.device)
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
-        self.loss = None
+        self.loss = 0.0
         self.file = open('train_info.file', 'wb+')
         self.q_val_file = open('q_val.file', 'wb+')
 
@@ -108,13 +109,19 @@ class DQNAgent():
             eps (float): epsilon, for epsilon-greedy action selection
         """
         # Epsilon-greedy action selection
+        state = torch.from_numpy(state).float().unsqueeze(0).to(self.q_eval.device)
         if random.random() > eps:
-            state = torch.from_numpy(state).float().unsqueeze(0).to(self.q_eval.device)
-            action_values = self.q_eval(state).cpu().data.numpy()
-            #  self.file.write(bytes(str(state.data.tolist()) + ',' + str(action_values.data.tolist()) + '\n', 'utf-8'))
-            return np.argmax(action_values), action_values
+            if self.dueling:
+                action_values = self.q_eval(state)[1].cpu()
+            else:
+                action_values = self.q_eval(state)[0].cpu()
+            return np.argmax(action_values.data.numpy()), action_values
         else:
-            return random.choice(np.arange(self.action_size)), None
+            action_values = self.q_eval(state)[0].cpu()
+            cat = Categorical(logits=action_values)
+            action = cat.sample()
+            return action, None
+            #  return random.choice(np.arange(self.action_size)), None
 
     def learn(self, experiences, gamma):
         """Update value parameters using given batch of experience tuples.
@@ -127,17 +134,18 @@ class DQNAgent():
         states, actions, rewards, next_states, dones = experiences
 
         # Get max predicted Q values (for next states) from target model
-        Q_targets_next = self.q_next(next_states).detach()
-        Q_target_current = self.q_next(states).detach().min(1)[0].unsqueeze(1)
-        zeros = torch.zeros(Q_target_current.shape)
-        Q_target_current = torch.fmin(Q_target_current, zeros)
+        Q_targets_next = self.q_next(next_states)[0].detach()
+        #  Q_target_current = self.q_next(states).detach().min(1)[0].unsqueeze(1)
+        #  zeros = torch.zeros(Q_target_current.shape)
+       #   Q_target_current = torch.fmin(Q_target_current, zeros)
 
-        equal = torch.all(torch.eq(states, next_states), axis=1).type(torch.FloatTensor).unsqueeze(1)
+        equal = torch.all(torch.eq(states, next_states),
+                axis=1).type(torch.FloatTensor).unsqueeze(1).to(self.q_eval.device)
 
         if self.double_q:
-            Q_eval_next = self.q_eval(states).detach()
+            Q_eval_next, _ = self.q_eval(states)
             max_act4next = np.argmax(Q_eval_next, axis=1)
-            selected_q_next = Q_targets_next[np.arange(Q_targets_next.shape[0]),max_act4next].unsqueeze(1)
+            selected_q_next = Q_targets_next[np.arange(Q_targets_next.shape[0]), max_act4next].unsqueeze(1)
         else:
             selected_q_next = Q_targets_next.max(1)[0].unsqueeze(1)
 
@@ -150,7 +158,7 @@ class DQNAgent():
         #  Q_targets[dones] = 0.0
 
         # Get expected Q values from local model
-        Q_expected = self.q_eval(states).gather(1, actions)
+        Q_expected = self.q_eval(states)[0].gather(1, actions)
         #  self.q_val_file.write(bytes(str(states.data.tolist()) + ', actions' + str(actions.data.tolist()) +\
                 #  ', rewards' + str(rewards.data.tolist()) + ', Q_targets' + str(Q_targets.data.tolist())\
                 #  + ', Q_expected' + str(Q_expected.data.tolist())  + '\n', 'utf-8'))
@@ -183,8 +191,8 @@ class DQNAgent():
         torch.save(self.q_eval.state_dict(), name)
 
     def load(self, name):
-        self.q_eval.load_state_dic(torch.load(name))
-        self.q_next.load_state_dic(torch.load(name))
+        self.q_eval.load_state_dict(torch.load(name))
+        self.q_next.load_state_dict(torch.load(name))
 
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""

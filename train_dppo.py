@@ -31,8 +31,9 @@ UPDATE_STEP = 15            # loop update operation n-steps
 EPSILON = 0.2               # for clipping surrogate objective
 GAME = 'game2048-v0'
 GAME_SIZE=3
+NORM=True
 
-env = gym.make(GAME, size=GAME_SIZE)
+env = gym.make(GAME, size=GAME_SIZE, norm=NORM)
 S_DIM = env.observation_space.shape[0]
 A_DIM = env.action_space.n
 
@@ -110,13 +111,13 @@ class PPONet(object):
 class Worker(object):
     def __init__(self, wid):
         self.wid = wid
-        self.env = gym.make(GAME, size=GAME_SIZE).unwrapped
+        self.env = gym.make(GAME, size=GAME_SIZE, norm=NORM).unwrapped
         self.ppo = GLOBAL_PPO
 
     def work(self):
         global GLOBAL_EP, GLOBAL_RUNNING_R, GLOBAL_UPDATE_COUNTER
         while not COORD.should_stop():
-            s = self.env.reset(True)
+            s = self.env.reset()
             ep_r = 0
             buffer_s, buffer_a, buffer_r = [], [], []
             for t in range(EP_LEN):
@@ -124,7 +125,7 @@ class Worker(object):
                     ROLLING_EVENT.wait()                        # wait until PPO is updated
                     buffer_s, buffer_a, buffer_r = [], [], []   # clear history buffer, use new policy to collect data
                 a = self.ppo.choose_action(s)
-                s_, r, done, _ = self.env.step(a, True)
+                s_, r, done, _ = self.env.step(a)
                 buffer_s.append(s)
                 buffer_a.append(a)
                 buffer_r.append(r)                            # 0 for not down, -11 for down. Reward engineering
@@ -187,11 +188,11 @@ if __name__ == '__main__':
     # plot reward change and test
     plt.plot(np.arange(len(GLOBAL_RUNNING_R)), GLOBAL_RUNNING_R)
     plt.xlabel('Episode'); plt.ylabel('Moving reward'); plt.ion(); plt.show()
-    env = gym.make(GAME, size=GAME_SIZE)
+    env = gym.make(GAME, size=GAME_SIZE, norm=NORM)
     for t in range(1000):
-        s = env.reset(True)
+        s = env.reset()
         while True:
-            s, r, done, info = env.step(GLOBAL_PPO.choose_action(s), True)
+            s, r, done, info = env.step(GLOBAL_PPO.choose_action(s))
             if done:
                 break
 

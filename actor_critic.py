@@ -23,33 +23,37 @@ from common.multiprocessing_env import SubprocVecEnv
 
 import env
 
-num_envs = 16
+num_envs = 32
 #  env_name = "CartPole-v0"
 env_name = "game2048-v0"
 
 def make_env():
     def _thunk():
-        env = gym.make(env_name)
+        env = gym.make(env_name, size=3, norm=True)
         return env
 
     return _thunk
 
-env = gym.make(env_name)
+env = make_env()()
 
 class ActorCritic(nn.Module):
-    def __init__(self, num_inputs, num_outputs, hidden_size, std=0.0):
+    def __init__(self, num_inputs, num_outputs, hidden_size, hd2_size, std=0.0):
         super(ActorCritic, self).__init__()
 
         self.critic = nn.Sequential(
             nn.Linear(num_inputs, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, 1)
+            nn.Linear(hidden_size, hd2_size),
+            nn.ReLU(),
+            nn.Linear(hd2_size, 1)
         )
 
         self.actor = nn.Sequential(
             nn.Linear(num_inputs, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, num_outputs),
+            nn.Linear(hidden_size, hd2_size),
+            nn.ReLU(),
+            nn.Linear(hd2_size, num_outputs),
             nn.Softmax(dim=1),
         )
 
@@ -79,7 +83,7 @@ def test_env(model, vis=False):
         state = next_state
         if vis: env.render()
         total_reward += reward
-    return total_reward
+    return total_reward, env.get_score()
 
 def compute_returns(next_value, rewards, masks, gamma=0.99):
     R = next_value
@@ -91,7 +95,8 @@ def compute_returns(next_value, rewards, masks, gamma=0.99):
 
 
 #Hyper params:
-hidden_size = 256
+hidden_size = 128
+hd2_size = 64
 lr          = 3e-4
 num_steps   = 5
 
@@ -102,10 +107,10 @@ def main():
     num_inputs  = envs.observation_space.shape[0]
     num_outputs = envs.action_space.n
 
-    model = ActorCritic(num_inputs, num_outputs, hidden_size).to(device)
+    model = ActorCritic(num_inputs, num_outputs, hidden_size, hd2_size).to(device)
     optimizer = optim.Adam(model.parameters())
 
-    max_frames   = 1000
+    max_frames   = 10000
     frame_idx    = 0
     test_rewards = []
 
@@ -137,10 +142,6 @@ def main():
             state = next_state
             frame_idx += 1
 
-            #  if frame_idx % 1000 == 0:
-                #  test_rewards.append(np.mean([test_env(model, True) for _ in range(10)]))
-               #   #  plot(frame_idx, test_rewards)
-
         next_state = torch.FloatTensor(next_state).to(device)
         _, next_value = model(next_state)
         returns = compute_returns(next_value, rewards, masks)
@@ -157,14 +158,17 @@ def main():
         loss = actor_loss + 0.5 * critic_loss - 0.001 * entropy
 
         print(f'\rframe: {frame_idx}\t loss: {loss}', end='')
-        if frame_indx % 100 == 0:
-            print(f'\rframe: {frame_idx}\t loss: {loss}\n')
+        if frame_idx % 100 == 0:
+            rewards, scores = map(list,zip(*((test_env(model, False) for _ in range(10)))))
+            avg_rewards = np.mean(rewards)
+            avg_scores = np.mean(scores)
+            print(f'\rframe: {frame_idx}\t avg_rewards: {avg_rewards:.2f}\t avg_scores: {avg_scores:.2f}\t loss: {loss}')
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-    test_rewards.append(np.mean([test_env(model, True) for _ in range(10)]))
+    ((test_env(model, True) for _ in range(10)))
     envs.close()
 
 if __name__ == '__main__':
