@@ -12,8 +12,19 @@ BUFFER_SIZE = int(1e6)  # replay buffer size
 BATCH_SIZE = 64         # minibatch size
 GAMMA = 0.95            # discount factor
 TAU = 1e-3              # for soft update of target parameters
-LR = 5e-4               # learning rate
+LR = 1e-3               # learning rate
 UPDATE_EVERY = 2        # how often to update the network
+
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, hid_channels):
+        super(ResBlock, self).__init__()
+        self.linear1 = nn.Linear(in_channels, hid_channels)
+
+    def forward(self, x):
+        out = x
+        out = F.relu(self.linear1(out))
+        out += x
+        return out
 
 class QNetwork(nn.Module):
     """Actor (Policy) Model."""
@@ -33,6 +44,11 @@ class QNetwork(nn.Module):
         self.dueling = dueling
 
         self.fc1 = nn.Linear(state_size, fc1_units)
+        self.resnet = nn.Sequential(
+            ResBlock(fc1_units, fc1_units),
+            ResBlock(fc1_units, fc1_units),
+            ResBlock(fc1_units, fc1_units),
+        )
         self.fc2 = nn.Linear(fc1_units, fc2_units)
         if self.dueling:
             self.V = nn.Linear(fc2_units, 1)
@@ -49,6 +65,7 @@ class QNetwork(nn.Module):
     def forward(self, state):
         """Build a network that maps state -> action values."""
         x = F.relu(self.fc1(state))
+        x = self.resnet(x)
         x = F.relu(self.fc2(x))
         if self.dueling:
             V = self.V(x)
@@ -83,8 +100,6 @@ class DQNAgent():
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
         self.loss = 0.0
-        self.file = open('train_info.file', 'wb+')
-        self.q_val_file = open('q_val.file', 'wb+')
 
     def step(self, state, action, reward, next_state, done):
         # Save experience in replay memory
@@ -100,7 +115,7 @@ class DQNAgent():
 
         return self.loss
 
-    def choose_action(self, state, eps=0.):
+    def choose_action(self, state, eps=0., rand=False):
         """Returns actions for given state as per current policy.
 
         Params
@@ -108,6 +123,8 @@ class DQNAgent():
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
+        if rand:
+           return random.choice(np.arange(self.action_size)), None
         # Epsilon-greedy action selection
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.q_eval.device)
         if random.random() > eps:
@@ -121,7 +138,6 @@ class DQNAgent():
             cat = Categorical(logits=action_values)
             action = cat.sample()
             return action, None
-            #  return random.choice(np.arange(self.action_size)), None
 
     def learn(self, experiences, gamma):
         """Update value parameters using given batch of experience tuples.
@@ -159,9 +175,6 @@ class DQNAgent():
 
         # Get expected Q values from local model
         Q_expected = self.q_eval(states)[0].gather(1, actions)
-        #  self.q_val_file.write(bytes(str(states.data.tolist()) + ', actions' + str(actions.data.tolist()) +\
-                #  ', rewards' + str(rewards.data.tolist()) + ', Q_targets' + str(Q_targets.data.tolist())\
-                #  + ', Q_expected' + str(Q_expected.data.tolist())  + '\n', 'utf-8'))
 
         # Compute loss
         loss = self.q_eval.loss(Q_expected, Q_targets)

@@ -35,7 +35,7 @@ class Game2048(gym.Env):
         self.h = self.size
         #  self.penalty = - pow(4, size) * 2
         self.penalty = -4
-        squares = self.size * self.size
+        self.squares = self.size * self.size
 
         # Maintain own idea of game score, separate from rewards.
         self.score = 0
@@ -43,9 +43,7 @@ class Game2048(gym.Env):
         # Members for gym implementation:
         self.action_space = spaces.Discrete(4)
         # Suppose that the maximum tile is as if you have powers of 2 across the board-matrix.
-        self.observation_space = spaces.Box(0, pow(2, squares + 2), (squares, ), dtype=np.int)
-        # Guess that the maximum reward is also 2**squares though you'll probably never get that.
-        ##self.reward_range = (0., float(2**squares))
+        self.observation_space = spaces.Box(0, pow(2, self.squares + 2), (self.squares, ), dtype=np.int)
 
         # Initialise the random seed of the gym environment.
         self.seed()
@@ -101,8 +99,13 @@ class Game2048(gym.Env):
         ret[index] = 2
         ret = np.log2(ret)
         ret -= 1
-        #  ret /= (self.size ** 2 + 1)
-        return ret
+        ret = ret.astype(np.int32)
+        shape = self.squares * (self.squares + 2)
+        result = np.zeros(shape)
+        for i in range(self.squares):
+            result[i * (self.squares + 2) + ret[i]] = 1.0
+
+        return result
 
     def reset(self):
         """Reset the game board-matrix and add 2 tiles."""

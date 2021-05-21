@@ -30,11 +30,15 @@ flags.DEFINE_boolean('norm', True, 'env is normalized')
 
 FLAGS = flags.FLAGS
 
-def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.9999):
+def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.999):
     env = gym.make('game2048-v0', size=size, norm=FLAGS.norm)
     env.seed(1)
 
-    agent = model.DQNAgent(size * size, 4, 0, FLAGS.double_q, FLAGS.dueling)
+    if FLAGS.norm:
+        input_size = (size * size) * (size * size + 2)
+    else:
+        input_size = size * size
+    agent = model.DQNAgent(input_size, 4, 0, FLAGS.double_q, FLAGS.dueling)
     if FLAGS.model_file:
         print(f'load {FLAGS.model_file}')
         agent.load(FLAGS.model_file)
@@ -48,6 +52,7 @@ def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.9999):
     scores = []
     sd_name = 'model_%dx%d.checkpoint'%(size, size)
 
+    random = False
     for trial in range(1, trials+1):
         obs = env.reset()
         stepno = 0
@@ -56,8 +61,9 @@ def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.9999):
         while True:
             stepno += 1
             total_steps += 1
-            action, _ = agent.choose_action(obs, eps)
+            action, _ = agent.choose_action(obs, eps, rand=random)
             obs_, reward, done, _ = env.step(action)
+            random = np.all(obs == obs_)
             loss = agent.step(obs, action, reward, obs_, done)
             obs = obs_
             rewards += reward
@@ -72,11 +78,11 @@ def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.9999):
         if env.get_score() > highest_score:
             highest_score = env.get_score()
         total_scores += env.get_score()
-        print('\rEpisode {}\t Steps: {}\t\t Average Reward: {:.2f}\t\t Average Scores: {:.2f}\t loss: {:.2f}\t eps: {:.4f}'
-                .format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), loss, eps), end="")
+        print('\rEpisode {}\t Steps: {}\t\t Average Reward: {:.2f}\t\t Average Scores: {:.2f}\t loss: {:.2f}\t highest: {}\t eps: {:.4f}'
+                .format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), loss, highest_score, eps), end="")
         if trial % WINDOWS_SIZE == 0:
-            print('\rEpisode {}\t Steps: {}\t\t Average Reward: {:.2f}\t\t Average Scores: {:.2f}\t loss: {:.2f}\t eps: {:.4f}'
-                    .format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), loss, eps))
+            print('\rEpisode {}\t Steps: {}\t\t Average Reward: {:.2f}\t\t Average Scores: {:.2f}\t loss: {:.2f}\t highest: {}\t eps: {:.4f}'
+                    .format(trial, total_steps, np.mean(rewards_window), np.mean(scores_window), loss, highest_score, eps))
         if trial % 1000 == 0:
             agent.save(sd_name)
 
