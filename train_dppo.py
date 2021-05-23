@@ -31,10 +31,9 @@ UPDATE_STEP = 15            # loop update operation n-steps
 EPSILON = 0.2               # for clipping surrogate objective
 GAME = 'game2048-v0'
 GAME_SIZE=3
-NORM=True
 
-env = gym.make(GAME, size=GAME_SIZE, norm=NORM)
-S_DIM = env.observation_space.shape[0]
+env = gym.make(GAME, size=GAME_SIZE)
+S_DIM = int(np.prod(env.observation_space.shape))
 A_DIM = env.action_space.n
 
 class PPONet(object):

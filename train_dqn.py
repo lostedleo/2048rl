@@ -35,10 +35,10 @@ def train_dqn(size, agt, eps_start=1.0, eps_end=0.05, eps_decay=0.999):
     env.seed(1)
 
     if FLAGS.norm:
-        input_size = (size * size) * (size * size + 2)
+        channels = size * size + 2
     else:
-        input_size = size * size
-    agent = model.DQNAgent(input_size, 4, 0, FLAGS.double_q, FLAGS.dueling)
+        channels = 1
+    agent = model.DQNAgent(size, channels, 4, 0, FLAGS.double_q, FLAGS.dueling)
     if FLAGS.model_file:
         print(f'load {FLAGS.model_file}')
         agent.load(FLAGS.model_file)
@@ -106,20 +106,21 @@ def eval(env, agent, times=1000, render=False):
     max_tiles = []
     eps = 0.0
 
+    random = False
     for i in range(times):
         obs = env.reset()
         while True:
-            action, action_values = agent.choose_action(obs, eps)
-            if eps > 0.0:
-                eps = 0.0
+            action, action_values = agent.choose_action(obs, eps, rand=random)
             obs_, reward, done, _ = env.step(action)
             if render:
                 env.render()
             if str(obs_) == str(obs):
+                random = True
                 #env.render()
+                #  print(f'action is: {action} {reward} {action_values} {obs} {obs_}')
                 print(f'action is: {action} {reward} {action_values} {obs} {obs_}')
-                agent.step(obs, action, reward, obs_, done)
-                eps = 1.0
+            else:
+                random = False
             obs = obs_
             if done:
                 break
@@ -137,7 +138,11 @@ def eval(env, agent, times=1000, render=False):
 def test_dqn(size):
     import torch
     env = gym.make('game2048-v0', size=size, norm=FLAGS.norm)
-    agent = model.DQNAgent(size * size, 4, 0, FLAGS.double_q, FLAGS.dueling)
+    if FLAGS.norm:
+        channels = size * size + 2
+    else:
+        channels = 1
+    agent = model.DQNAgent(size, channels, 4, 0, FLAGS.double_q, FLAGS.dueling)
 
     if FLAGS.model_file:
         sd_name = FLAGS.model_file

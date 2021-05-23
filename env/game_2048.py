@@ -33,23 +33,41 @@ class Game2048(gym.Env):
 
         self.w = self.size
         self.h = self.size
-        #  self.penalty = - pow(4, size) * 2
-        self.penalty = -4
+        self.penalty = -1
         self.squares = self.size * self.size
 
         # Maintain own idea of game score, separate from rewards.
         self.score = 0
+        self.illegal_actions = 0
 
         # Members for gym implementation:
         self.action_space = spaces.Discrete(4)
         # Suppose that the maximum tile is as if you have powers of 2 across the board-matrix.
-        self.observation_space = spaces.Box(0, pow(2, self.squares + 2), (self.squares, ), dtype=np.int)
+        if self.norm:
+            self.observation_space = spaces.Box(0, 1, (self.squares + 2, self.size, self.size), dtype=np.int)
+            self.ret_obs = self.norm_obs
+            self.ret_func = self._norm_ret
+        else:
+            self.observation_space = spaces.Box(0, pow(2, self.squares + 1), (self.size, self.size), dtype=np.int)
+            self.ret_obs = lambda x: x.copy()
+            self.ret_func = self._default_ret
 
         # Initialise the random seed of the gym environment.
         self.seed()
 
         # Reset the board-matrix, ready for a new game.
         self.reset()
+
+    def _default_ret(self, obs, reward, done, info):
+        return self.ret_obs(obs), reward, done, info
+
+    def _norm_ret(self, obs, reward, done, info):
+        if reward > 0:
+            reward = log2(reward)
+        else:
+            reward = -0.5
+
+        return self.ret_obs(obs), reward, done, info
 
     def seed(self, seed=None):
         """Set the random seed for the gym environment."""
@@ -69,10 +87,12 @@ class Game2048(gym.Env):
             add_val = self.add_tile()
             done = self.isend()
             reward = float(score)
+            self.illegal_actions = 0
         except IllegalMove as e:
             logging.debug("Illegal move")
             done = False
-            reward = 8 * self.penalty # No reward for an illegal move. We could even set a negative value to penalize the agent.
+            reward = self.penalty # No reward for an illegal move. We could even set a negative value to penalize the agent.
+            self.illegal_actions +=1
 
         observation = self.Matrix
         # info (dictionary):
@@ -80,32 +100,29 @@ class Game2048(gym.Env):
         #    - it is useful for testing and for monitoring the agent (via callback functions) while it is training
         info = {"max_tile": self.highest(), "score": self.score}
         if done:
-            reward += self.penalty
-            #  reward = 0
+            reward = 0
+        else:
+            if self.illegal_actions > 10:
+                done = True
+                info['illegal_actions'] = True
 
         # Return observation (board-matrix state), reward, done and info dictionary
-        if self.norm:
-            if reward > 0:
-                reward = log2(reward)
-            elif reward < 0:
-                reward = -log2(abs(reward))
-            return self.normalize(), reward, done, info
-        return observation.reshape(self.size ** 2).copy(), reward, done, info
+        return self.ret_func(observation, reward, done, info)
 
-    def normalize(self):
-        ret = self.Matrix.reshape(self.size ** 2).copy()
-        ret *= 2
-        index = ret == 0
-        ret[index] = 2
-        ret = np.log2(ret)
-        ret -= 1
-        ret = ret.astype(np.int32)
-        shape = self.squares * (self.squares + 2)
-        result = np.zeros(shape)
-        for i in range(self.squares):
-            result[i * (self.squares + 2) + ret[i]] = 1.0
+    def norm_obs(self, obs):
+        value = obs.copy()
+        value *= 2
+        index = value == 0
+        value[index] = 2
+        value = np.log2(value).astype(np.int32)
+        value -= 1
 
-        return result
+        ret = np.zeros((self.squares + 2, self.size, self.size))
+        for i in range(self.size):
+            for j in range(self.size):
+                ret[value[i, j], i, j] = 1
+
+        return ret
 
     def reset(self):
         """Reset the game board-matrix and add 2 tiles."""
@@ -116,9 +133,7 @@ class Game2048(gym.Env):
         self.add_tile()
         self.add_tile()
 
-        if self.norm:
-            return self.normalize()
-        return self.Matrix.reshape(self.size ** 2).copy()
+        return self.ret_obs(self.Matrix)
 
     def render(self, mode='human'):
         """Rendering for standard output of score, highest tile reached and
@@ -267,10 +282,6 @@ class Game2048(gym.Env):
         """Check if the game is ended. Game ends if there is a 2048 tile or
         there are no legal moves. If there are empty spaces then there must
         be legal moves."""
-
-        #  if self.highest() == 2048:
-        #      return True
-
         for direction in range(4):
             try:
                 self.move(direction, trial=True)
