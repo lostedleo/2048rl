@@ -30,7 +30,7 @@ class ResBlock(nn.Module):
 class QNetwork(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, state_size, action_size, seed, dueling=False, fc1_units=128, fc2_units=64):
+    def __init__(self, state_size, action_size, seed, dueling=False, fc1_units=64, fc2_units=128):
         """Initialize parameters and build model.
         Params
         ======
@@ -117,33 +117,45 @@ class CNNQNetwork(nn.Module):
     def build_cnnnet(self, channel_size, size, action_size, fc1_units, fc2_units):
         channels = self.channels = [fc1_units, fc2_units]
         self.a = nn.Sequential(
-            nn.Conv2d(channel_size, channels[0], (2, 1), 1),
-            ResCnnBlock(channels[0], channels[0]),
+            nn.Conv2d(channel_size, channels[0], (2, 1)),
         )
         self.aa = nn.Sequential(
-            nn.Conv2d(channels[0], channels[1], 2, 1),
-            ResCnnBlock(channels[1], channels[1]),
+            nn.Conv2d(channels[0], channels[1], (2, 1)),
+        )
+        self.ab = nn.Sequential(
+            nn.Conv2d(channels[0], channels[1], (1, 2)),
         )
 
         self.b = nn.Sequential(
-            nn.Conv2d(channel_size, channels[0], (1, 2), 1),
-            ResCnnBlock(channels[0], channels[0]),
+            nn.Conv2d(channel_size, channels[0], (1, 2)),
+        )
+        self.ba = nn.Sequential(
+            nn.Conv2d(channels[0], channels[1], (2, 1)),
         )
         self.bb = nn.Sequential(
-            nn.Conv2d(channels[0], channels[1], 2, 1),
-            ResCnnBlock(channels[1], channels[1]),
+            nn.Conv2d(channels[0], channels[1], (1, 2)),
         )
+
         self.output_size = self.eval_output_size(size)
+        self.res_size = 64
+        self.out_size = 32
+        self.fc1 = nn.Linear(self.output_size, self.res_size)
+        self.resnet = nn.Sequential(
+            ResBlock(self.res_size, self.res_size),
+            ResBlock(self.res_size, self.res_size),
+        )
+        self.fc2 = nn.Linear(self.res_size, self.out_size)
 
         if self.dueling:
-            self.V = nn.Linear(self.output_size, 1)
-            self.A = nn.Linear(self.output_size, action_size)
+            self.V = nn.Linear(self.out_size, 1)
+            self.A = nn.Linear(self.out_size, action_size)
         else:
-            self.Q = nn.Linear(self.output_size, action_size)
+            self.Q = nn.Linear(self.out_size, action_size)
 
     def eval_output_size(self, size):
         output_size = (self.channels[0] * (size - 1) * size
-                + self.channels[1] * (size - 2) * (size - 1)) * 2
+                + self.channels[1] * (size - 2) * size
+                + self.channels[1] * (size - 1) * (size - 1)) * 2
         return output_size
 
     def forward(self, state):
@@ -151,9 +163,15 @@ class CNNQNetwork(nn.Module):
         N, L, H, W = state.shape
         a = self.a(state)
         aa = self.aa(a)
+        ab = self.ab(a)
         b = self.b(state)
+        ba = self.ba(b)
         bb = self.bb(b)
-        x = torch.cat((a.view(N, -1), aa.view(N, -1), b.view(N, -1), bb.view(N, -1)), 1)
+        x = torch.cat((a.view(N, -1), b.view(N, -1), aa.view(N, -1),
+            ab.view(N, -1), ba.view(N, -1), bb.view(N, -1)), 1)
+        x = relu(self.fc1(x))
+        x = self.resnet(x)
+        x = relu(self.fc2(x))
 
         if self.dueling:
             V = self.V(x)
