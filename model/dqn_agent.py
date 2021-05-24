@@ -153,8 +153,7 @@ class CNNQNetwork(nn.Module):
         aa = self.aa(a)
         b = self.b(state)
         bb = self.bb(b)
-        x = torch.cat((a.flatten(), aa.flatten(), b.flatten(), bb.flatten()))
-        x = x.reshape(N, self.output_size)
+        x = torch.cat((a.view(N, -1), aa.view(N, -1), b.view(N, -1), bb.view(N, -1)), 1)
 
         if self.dueling:
             V = self.V(x)
